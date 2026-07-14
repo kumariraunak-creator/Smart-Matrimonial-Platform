@@ -13,7 +13,11 @@ const getPendingUsers = async (req, res) => {
       accountStatus: "pending",
     }).select("-password");
 
-    res.status(200).json(pendingUsers);
+    res.status(200).json({
+      message: "Pending users fetched successfully",
+      count: pendingUsers.length,
+      users: pendingUsers,
+    });
   } catch (error) {
     res.status(500).json({
       message: "Server error",

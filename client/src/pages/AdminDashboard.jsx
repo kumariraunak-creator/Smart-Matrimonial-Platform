@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import "./AdminDashboard.css";
 import {
   ShieldCheck,
   Users,
@@ -9,7 +8,10 @@ import {
   Check,
   X,
   LogOut,
+  Ban,
+  RotateCcw,
 } from "lucide-react";
+import "./AdminDashboard.css";
 
 const API_URL =
   "https://smart-matrimonial-platform.onrender.com/api";
@@ -17,8 +19,9 @@ const API_URL =
 function AdminDashboard() {
   const navigate = useNavigate();
 
-  const [users, setUsers] = useState([]);
+  const [pendingUsers, setPendingUsers] = useState([]);
   const [consultants, setConsultants] = useState([]);
+  const [stats, setStats] = useState({});
   const [message, setMessage] = useState("");
 
   const token = localStorage.getItem("token");
@@ -31,22 +34,52 @@ function AdminDashboard() {
 
   const fetchAdminData = async () => {
     try {
-      const [usersResponse, consultantsResponse] =
-        await Promise.all([
-          axios.get(`${API_URL}/admin/users`, config),
+      setMessage("");
 
-          axios.get(
-            `${API_URL}/admin/consultants/pending`,
-            config
-          ),
-        ]);
+      const [
+        usersResponse,
+        consultantsResponse,
+        statsResponse,
+      ] = await Promise.all([
+        axios.get(
+          `${API_URL}/admin/pending-users`,
+          config
+        ),
 
-      setUsers(usersResponse.data.users || []);
+        axios.get(
+          `${API_URL}/admin/pending-consultants`,
+          config
+        ),
+
+        axios.get(
+          `${API_URL}/admin/dashboard`,
+          config
+        ),
+      ]);
+
+      setPendingUsers(
+        usersResponse.data.users ||
+          usersResponse.data.pendingUsers ||
+          []
+      );
 
       setConsultants(
-        consultantsResponse.data.consultants || []
+        consultantsResponse.data.consultants ||
+          consultantsResponse.data.profiles ||
+          []
+      );
+
+      setStats(
+        statsResponse.data.stats ||
+          statsResponse.data ||
+          {}
       );
     } catch (error) {
+      console.log(
+        "ADMIN DASHBOARD ERROR:",
+        error.response?.data || error
+      );
+
       setMessage(
         error.response?.data?.message ||
           "Failed to load admin dashboard"
@@ -58,13 +91,10 @@ function AdminDashboard() {
     fetchAdminData();
   }, []);
 
-  const updateConsultantStatus = async (
-    consultantId,
-    action
-  ) => {
+  const updateUserStatus = async (userId, action) => {
     try {
       const response = await axios.put(
-        `${API_URL}/admin/consultants/${consultantId}/${action}`,
+        `${API_URL}/admin/${action}-user/${userId}`,
         {},
         config
       );
@@ -75,7 +105,29 @@ function AdminDashboard() {
     } catch (error) {
       setMessage(
         error.response?.data?.message ||
-          "Failed to update consultant"
+          `Failed to ${action} user`
+      );
+    }
+  };
+
+  const updateConsultantStatus = async (
+    profileId,
+    action
+  ) => {
+    try {
+      const response = await axios.put(
+        `${API_URL}/admin/${action}-consultant/${profileId}`,
+        {},
+        config
+      );
+
+      setMessage(response.data.message);
+
+      fetchAdminData();
+    } catch (error) {
+      setMessage(
+        error.response?.data?.message ||
+          `Failed to ${action} consultant`
       );
     }
   };
@@ -103,7 +155,7 @@ function AdminDashboard() {
 
           <div>
             <Users size={20} />
-            Platform Users
+            Pending Users
           </div>
 
           <div>
@@ -126,11 +178,13 @@ function AdminDashboard() {
           <div>
             <span>ADMIN CONTROL CENTER</span>
 
-            <h1>Manage Your Matrimonial Platform.</h1>
+            <h1>
+              Manage Your Matrimonial Platform.
+            </h1>
 
             <p>
-              Review platform activity, manage registered users,
-              and approve trusted matrimonial consultants.
+              Approve registered users, review consultant
+              applications, and manage platform activity.
             </p>
           </div>
 
@@ -149,7 +203,11 @@ function AdminDashboard() {
           <article className="admin-stat-card admin-stat-pink">
             <Users size={28} />
 
-            <strong>{users.length}</strong>
+            <strong>
+              {stats.totalUsers ??
+                stats.usersCount ??
+                pendingUsers.length}
+            </strong>
 
             <span>Total Platform Users</span>
           </article>
@@ -157,10 +215,94 @@ function AdminDashboard() {
           <article className="admin-stat-card admin-stat-purple">
             <UserCheck size={28} />
 
-            <strong>{consultants.length}</strong>
+            <strong>
+              {stats.pendingUsers ??
+                stats.pendingUsersCount ??
+                pendingUsers.length}
+            </strong>
 
-            <span>Pending Consultant Approvals</span>
+            <span>Pending User Approvals</span>
           </article>
+        </section>
+
+        <section className="admin-section">
+          <div className="admin-section-heading">
+            <span>USER APPROVALS</span>
+
+            <h2>Pending Users</h2>
+          </div>
+
+          <div className="admin-consultant-grid">
+            {pendingUsers.length === 0 ? (
+              <div className="admin-empty">
+                No pending users available.
+              </div>
+            ) : (
+              pendingUsers.map((user) => (
+                <article
+                  className="admin-consultant-card"
+                  key={user._id}
+                >
+                  <div className="admin-consultant-avatar">
+                    {user.name
+                      ?.charAt(0)
+                      .toUpperCase() || "U"}
+                  </div>
+
+                  <h3>
+                    {user.name || "Matrimonial User"}
+                  </h3>
+
+                  <p>{user.email}</p>
+
+                  <div className="admin-consultant-info">
+                    <span>
+                      Role: {user.role || "user"}
+                    </span>
+
+                    <span>
+                      Status:{" "}
+                      {user.accountStatus || "pending"}
+                    </span>
+
+                    <span>
+                      Verification:{" "}
+                      {user.verificationStatus ||
+                        "unverified"}
+                    </span>
+                  </div>
+
+                  <div className="admin-approval-actions">
+                    <button
+                      className="admin-approve-button"
+                      onClick={() =>
+                        updateUserStatus(
+                          user._id,
+                          "approve"
+                        )
+                      }
+                    >
+                      <Check size={18} />
+                      Approve
+                    </button>
+
+                    <button
+                      className="admin-reject-button"
+                      onClick={() =>
+                        updateUserStatus(
+                          user._id,
+                          "reject"
+                        )
+                      }
+                    >
+                      <X size={18} />
+                      Reject
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
         </section>
 
         <section className="admin-section">
@@ -193,7 +335,8 @@ function AdminDashboard() {
                   </h3>
 
                   <p>
-                    {consultant.user?.email}
+                    {consultant.user?.email ||
+                      "Email unavailable"}
                   </p>
 
                   <div className="admin-consultant-info">
@@ -248,43 +391,15 @@ function AdminDashboard() {
 
         <section className="admin-section">
           <div className="admin-section-heading">
-            <span>REGISTERED ACCOUNTS</span>
+            <span>ACCOUNT MANAGEMENT</span>
 
-            <h2>Platform Users</h2>
+            <h2>Suspend / Reactivate User</h2>
           </div>
 
-          <div className="admin-users-table">
-            {users.length === 0 ? (
-              <div className="admin-empty">
-                No users available.
-              </div>
-            ) : (
-              users.map((user) => (
-                <div
-                  className="admin-user-row"
-                  key={user._id}
-                >
-                  <div className="admin-user-avatar">
-                    {user.name
-                      ?.charAt(0)
-                      .toUpperCase() || "U"}
-                  </div>
-
-                  <div className="admin-user-details">
-                    <strong>{user.name}</strong>
-                    <span>{user.email}</span>
-                  </div>
-
-                  <span className="admin-role-badge">
-                    {user.role}
-                  </span>
-
-                  <span className="admin-status-badge">
-                    {user.accountStatus}
-                  </span>
-                </div>
-              ))
-            )}
+          <div className="admin-empty">
+            Suspend and reactivate actions are ready in
+            the backend. We will connect the complete users
+            list in the next step.
           </div>
         </section>
       </main>
