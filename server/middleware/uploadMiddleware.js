@@ -1,26 +1,9 @@
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 
-const uploadDirectory = path.join(__dirname, "../uploads/profiles");
+// STORE FILE TEMPORARILY IN MEMORY
+const storage = multer.memoryStorage();
 
-if (!fs.existsSync(uploadDirectory)) {
-  fs.mkdirSync(uploadDirectory, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDirectory);
-  },
-
-  filename: (req, file, cb) => {
-    const uniqueName =
-      `${req.user.id}-${Date.now()}${path.extname(file.originalname)}`;
-
-    cb(null, uniqueName);
-  },
-});
-
+// ALLOWED IMAGE TYPES
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [
     "image/jpeg",
@@ -38,6 +21,7 @@ const fileFilter = (req, file, cb) => {
   cb(null, true);
 };
 
+// PROFILE PHOTO UPLOAD MIDDLEWARE
 const uploadProfilePhoto = multer({
   storage,
   fileFilter,

@@ -1,6 +1,38 @@
 const UserProfile = require("../models/UserProfile");
-const fs = require("fs");
-const path = require("path");
+const cloudinary = require("../config/cloudinary");
+
+// HELPER: UPLOAD BUFFER TO CLOUDINARY
+const uploadBufferToCloudinary = (fileBuffer, userId) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "smart-matrimonial/profiles",
+        public_id: `profile-${userId}`,
+        overwrite: true,
+        resource_type: "image",
+        transformation: [
+          {
+            width: 800,
+            height: 800,
+            crop: "limit",
+            quality: "auto",
+            fetch_format: "auto",
+          },
+        ],
+      },
+      (error, result) => {
+        if (error) {
+          return reject(error);
+        }
+
+        resolve(result);
+      }
+    );
+
+    uploadStream.end(fileBuffer);
+  });
+};
+
 // CREATE OR UPDATE MY PROFILE
 const createOrUpdateProfile = async (req, res) => {
   try {
@@ -20,7 +52,9 @@ const createOrUpdateProfile = async (req, res) => {
 
     if (profile) {
       profile = await UserProfile.findOneAndUpdate(
-        { user: req.user.id },
+        {
+          user: req.user.id,
+        },
         {
           age,
           gender,
@@ -103,7 +137,9 @@ const browseProfiles = async (req, res) => {
     } = req.query;
 
     const filter = {
-      user: { $ne: req.user.id },
+      user: {
+        $ne: req.user.id,
+      },
     };
 
     if (gender) {
@@ -161,7 +197,9 @@ const browseProfiles = async (req, res) => {
 // GET SINGLE PROFILE
 const getProfileById = async (req, res) => {
   try {
-    const profile = await UserProfile.findById(req.params.id);
+    const profile = await UserProfile.findById(
+      req.params.id
+    );
 
     if (!profile) {
       return res.status(404).json({
@@ -180,6 +218,7 @@ const getProfileById = async (req, res) => {
     });
   }
 };
+
 // UPLOAD OR UPDATE PROFILE PHOTO
 const uploadProfilePhoto = async (req, res) => {
   try {
@@ -194,41 +233,27 @@ const uploadProfilePhoto = async (req, res) => {
     });
 
     if (!profile) {
-      fs.unlinkSync(req.file.path);
-
       return res.status(404).json({
-        message: "Create your profile before uploading a photo",
+        message:
+          "Create your profile before uploading a photo",
       });
     }
 
-    // Delete old photo
-    if (profile.profilePhoto) {
-      const oldPhotoPath = path.join(
-        __dirname,
-        "..",
-        profile.profilePhoto
-      );
+    const result = await uploadBufferToCloudinary(
+      req.file.buffer,
+      req.user.id
+    );
 
-      if (fs.existsSync(oldPhotoPath)) {
-        fs.unlinkSync(oldPhotoPath);
-      }
-    }
-
-    profile.profilePhoto =
-      `/uploads/profiles/${req.file.filename}`;
+    profile.profilePhoto = result.secure_url;
 
     await profile.save();
 
     res.status(200).json({
-      message: "Profile photo uploaded successfully",
+      message:
+        "Profile photo uploaded successfully",
       profilePhoto: profile.profilePhoto,
     });
   } catch (error) {
-    // Remove newly uploaded file if DB operation fails
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-
     res.status(500).json({
       message: "Server error",
       error: error.message,
@@ -255,22 +280,21 @@ const deleteProfilePhoto = async (req, res) => {
       });
     }
 
-    const photoPath = path.join(
-      __dirname,
-      "..",
-      profile.profilePhoto
+    await cloudinary.uploader.destroy(
+      `smart-matrimonial/profiles/profile-${req.user.id}`,
+      {
+        resource_type: "image",
+        invalidate: true,
+      }
     );
-
-    if (fs.existsSync(photoPath)) {
-      fs.unlinkSync(photoPath);
-    }
 
     profile.profilePhoto = null;
 
     await profile.save();
 
     res.status(200).json({
-      message: "Profile photo deleted successfully",
+      message:
+        "Profile photo deleted successfully",
     });
   } catch (error) {
     res.status(500).json({
@@ -279,6 +303,7 @@ const deleteProfilePhoto = async (req, res) => {
     });
   }
 };
+
 module.exports = {
   createOrUpdateProfile,
   getMyProfile,
