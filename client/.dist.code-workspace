@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "../.dist"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../node_modules"
+		},
+		{
+			"path": "../server"
+		}
+	]
+}

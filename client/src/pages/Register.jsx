@@ -55,18 +55,27 @@ function Register() {
         navigate("/login");
       }, 1500);
     } catch (error) {
-      console.log("REGISTER ERROR:", error);
+  console.log("========== REGISTER ERROR ==========");
+  console.log(error);
 
-      console.log(
-        "SERVER RESPONSE:",
-        error.response?.data
-      );
+  console.log("MESSAGE:", error.message);
+  console.log("CODE:", error.code);
 
-      setMessage(
-        error.response?.data?.message ||
-          error.message ||
-          "Registration failed. Please try again."
-      );
+  if (error.response) {
+    console.log("STATUS:", error.response.status);
+    console.log("DATA:", error.response.data);
+  }
+
+  if (error.request) {
+    console.log("REQUEST:", error.request);
+  }
+
+  setMessage(
+    error.response?.data?.message ||
+    error.message ||
+    "Network Error"
+  );
+}
     } finally {
       setLoading(false);
     }
