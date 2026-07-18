@@ -12,7 +12,10 @@ const protect = (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
 
     req.user = decoded;
 
@@ -26,12 +29,15 @@ const protect = (req, res, next) => {
 
 const adminOnly = (req, res, next) => {
   if (req.user && req.user.role === "admin") {
-    next();
-  } else {
-    return res.status(403).json({
-      message: "Access denied. Admin only.",
-    });
+    return next();
   }
+
+  return res.status(403).json({
+    message: "Access denied. Admin only.",
+  });
 };
 
-module.exports = { protect, adminOnly };
+module.exports = {
+  protect,
+  adminOnly,
+};

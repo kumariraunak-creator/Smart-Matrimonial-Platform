@@ -23,34 +23,48 @@ const server = http.createServer(app);
 
 const PORT = process.env.PORT || 5000;
 
-// SOCKET.IO SETUP
+/* ===========================
+        SOCKET.IO SETUP
+=========================== */
+
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
 app.set("io", io);
+
+/* ===========================
+            CORS
+=========================== */
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-    ],
+    origin: "http://localhost:5173",
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// MIDDLEWARE
+/* ===========================
+        MIDDLEWARE
+=========================== */
+
 app.use(express.json());
 
-// SERVE UPLOADED FILES
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"))
 );
 
-// API ROUTES
+/* ===========================
+          ROUTES
+=========================== */
+
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/profile", profileRoutes);
@@ -60,29 +74,40 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/consultants", consultantRoutes);
 app.use("/api/bookings", bookingRoutes);
 
-// 404 HANDLER
+/* ===========================
+          404
+=========================== */
+
 app.use((req, res) => {
   res.status(404).json({
     message: "Route not found",
   });
 });
 
-// GENERAL ERROR HANDLER
+/* ===========================
+      GLOBAL ERROR
+=========================== */
+
 app.use((error, req, res, next) => {
   if (error.code === "LIMIT_FILE_SIZE") {
     return res.status(400).json({
-      message: "Profile photo must be smaller than 5MB",
+      message:
+        "Profile photo must be smaller than 5MB",
     });
   }
 
   console.error(error);
 
   res.status(error.status || 500).json({
-    message: error.message || "Internal server error",
+    message:
+      error.message || "Internal server error",
   });
 });
 
-// SOCKET AUTHENTICATION
+/* ===========================
+    SOCKET AUTHENTICATION
+=========================== */
+
 io.use((socket, next) => {
   try {
     const token =
@@ -110,32 +135,51 @@ io.use((socket, next) => {
   }
 });
 
-// SOCKET CONNECTION
+/* ===========================
+     SOCKET CONNECTION
+=========================== */
+
 io.on("connection", (socket) => {
   console.log(
-    `User connected: ${socket.user.id}`
+    `✅ User Connected : ${socket.user.id}`
   );
 
   socket.join(socket.user.id);
 
-  socket.on("disconnect", () => {
+  socket.emit("connected", {
+    success: true,
+  });
+
+  socket.on("disconnect", (reason) => {
     console.log(
-      `User disconnected: ${socket.user.id}`
+      `❌ User Disconnected : ${socket.user.id}`
+    );
+
+    console.log("Reason:", reason);
+  });
+
+  socket.on("error", (error) => {
+    console.log(
+      "Socket Error:",
+      error.message
     );
   });
 });
 
-// DATABASE CONNECTION + SERVER START
+/* ===========================
+     DATABASE CONNECTION
+=========================== */
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log(
-      "MongoDB Connected Successfully"
+      "✅ MongoDB Connected Successfully"
     );
 
     server.listen(PORT, () => {
       console.log(
-        `Server running on port ${PORT}`
+        `🚀 Server running on port ${PORT}`
       );
     });
   })

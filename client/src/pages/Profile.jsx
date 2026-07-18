@@ -17,7 +17,7 @@ function Profile() {
   });
 
   const [photo, setPhoto] = useState(null);
-  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [profilePhoto, setProfilePhoto] = useState("");
   const [message, setMessage] = useState("");
 
   const token = localStorage.getItem("token");
@@ -29,27 +29,41 @@ function Profile() {
   };
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const response = await axios.get(
-          `${API_URL}/profile/me`,
-          config
-        );
-
-        setProfile(response.data.profile);
-        setProfilePhoto(response.data.profile.profilePhoto);
-      } catch (error) {
-        if (error.response?.status !== 404) {
-          setMessage(
-            error.response?.data?.message ||
-              "Failed to load profile"
-          );
-        }
-      }
-    };
-
     fetchProfile();
   }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/profile/me`,
+        config
+      );
+
+      if (response.data.profile) {
+        setProfile({
+          age: response.data.profile.age || "",
+          gender: response.data.profile.gender || "",
+          city: response.data.profile.city || "",
+          education:
+            response.data.profile.education || "",
+          profession:
+            response.data.profile.profession || "",
+          bio: response.data.profile.bio || "",
+        });
+
+        setProfilePhoto(
+          response.data.profile.profilePhoto || ""
+        );
+      }
+    } catch (error) {
+      if (error.response?.status !== 404) {
+        setMessage(
+          error.response?.data?.message ||
+            "Failed to load profile"
+        );
+      }
+    }
+  };
 
   const handleChange = (event) => {
     setProfile({
@@ -68,8 +82,8 @@ function Profile() {
         config
       );
 
-      setProfile(response.data.profile);
       setMessage(response.data.message);
+      fetchProfile();
     } catch (error) {
       setMessage(
         error.response?.data?.message ||
@@ -80,7 +94,7 @@ function Profile() {
 
   const handlePhotoUpload = async () => {
     if (!photo) {
-      setMessage("Please select a photo");
+      setMessage("Please select a photo first.");
       return;
     }
 
@@ -88,12 +102,13 @@ function Profile() {
       const formData = new FormData();
       formData.append("profilePhoto", photo);
 
-      const response = await axios.put(
+      const response = await axios.post(
         `${API_URL}/profile/photo`,
         formData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
           },
         }
       );
@@ -101,22 +116,30 @@ function Profile() {
       setProfilePhoto(response.data.profilePhoto);
       setMessage(response.data.message);
     } catch (error) {
+      console.log("UPLOAD ERROR:", error);
+      console.log("STATUS:", error.response?.status);
+      console.log("DATA:", error.response?.data);
+      console.log("MESSAGE:", error.message);
+
       setMessage(
         error.response?.data?.message ||
+          error.message ||
           "Photo upload failed"
       );
     }
   };
 
-  return (
+    return (
     <div className="profile-page">
       <header className="profile-header">
         <div>
           <span>MY MATRIMONIAL PROFILE</span>
+
           <h1>Build a Profile That Represents You.</h1>
+
           <p>
-            Keep your personal information updated to discover more
-            meaningful and compatible connections.
+            Keep your personal information updated to
+            discover more meaningful connections.
           </p>
         </div>
 
@@ -127,7 +150,10 @@ function Profile() {
         <aside className="profile-photo-card">
           <div className="profile-photo-wrapper">
             {profilePhoto ? (
-              <img src={profilePhoto} alt="Profile" />
+              <img
+                src={profilePhoto}
+                alt="Profile"
+              />
             ) : (
               <UserRound size={65} />
             )}
@@ -136,23 +162,25 @@ function Profile() {
           <h2>Your Profile Photo</h2>
 
           <p>
-            Upload a clear JPG, PNG, or WEBP photo up to 5MB.
+            Upload JPG, PNG or WEBP image (Max 5MB)
           </p>
 
           <label className="photo-select-button">
-            <Camera size={19} />
+            <Camera size={18} />
+
             Choose Photo
 
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(event) =>
-                setPhoto(event.target.files[0])
+              accept="image/*"
+              onChange={(e) =>
+                setPhoto(e.target.files[0])
               }
             />
           </label>
 
           <button
+            type="button"
             className="photo-upload-button"
             onClick={handlePhotoUpload}
           >
@@ -166,89 +194,106 @@ function Profile() {
         >
           <div className="profile-form-heading">
             <h2>Personal Information</h2>
+
             <p>
-              Add the details that help others understand you better.
+              Complete your matrimonial profile.
             </p>
           </div>
 
           {message && (
-            <div className="profile-message">{message}</div>
+            <div className="profile-message">
+              {message}
+            </div>
           )}
 
           <div className="profile-form-grid">
             <label>
               <span>Age</span>
+
               <input
                 type="number"
                 name="age"
-                value={profile.age || ""}
+                value={profile.age}
                 onChange={handleChange}
-                required
               />
             </label>
 
             <label>
               <span>Gender</span>
+
               <select
                 name="gender"
-                value={profile.gender || ""}
+                value={profile.gender}
                 onChange={handleChange}
-                required
               >
-                <option value="">Select Gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
+                <option value="">
+                  Select Gender
+                </option>
+
+                <option value="male">
+                  Male
+                </option>
+
+                <option value="female">
+                  Female
+                </option>
+
+                <option value="other">
+                  Other
+                </option>
               </select>
             </label>
 
             <label>
               <span>City</span>
+
               <input
                 type="text"
                 name="city"
-                value={profile.city || ""}
+                value={profile.city}
                 onChange={handleChange}
-                required
               />
             </label>
 
             <label>
               <span>Education</span>
+
               <input
                 type="text"
                 name="education"
-                value={profile.education || ""}
+                value={profile.education}
                 onChange={handleChange}
-                required
               />
             </label>
 
             <label>
               <span>Profession</span>
+
               <input
                 type="text"
                 name="profession"
-                value={profile.profession || ""}
+                value={profile.profession}
                 onChange={handleChange}
-                required
               />
             </label>
           </div>
 
           <label className="profile-bio-field">
-            <span>About You</span>
+            <span>Bio</span>
+
             <textarea
-              name="bio"
               rows="5"
-              value={profile.bio || ""}
+              name="bio"
+              value={profile.bio}
               onChange={handleChange}
-              placeholder="Tell others something meaningful about yourself..."
             />
           </label>
 
-          <button className="profile-save-button" type="submit">
-            <Save size={19} />
+          <button
+            className="profile-save-button"
+            type="submit"
+          >
+            <Save size={18} />
             Save Profile
           </button>
         </form>

@@ -5,6 +5,7 @@ const Interest = require("../models/Interest");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 
+// CHECK IF USERS ARE MATCHED
 const checkMatch = async (userId1, userId2) => {
   return await Interest.findOne({
     status: "accepted",
@@ -73,7 +74,10 @@ const sendMessage = async (req, res) => {
       message: message.trim(),
     });
 
-    // CREATE NEW MESSAGE NOTIFICATION
+    const populatedMessage = await Message.findById(newMessage._id)
+      .populate("sender", "name")
+      .populate("receiver", "name");
+
     const notification = await Notification.create({
       user: receiverId,
       sender: req.user.id,
@@ -82,23 +86,19 @@ const sendMessage = async (req, res) => {
       relatedId: newMessage._id,
     });
 
-    // SOCKET.IO EVENTS
     const io = req.app.get("io");
 
     if (io) {
-      // Send real-time message to receiver
       io.to(receiverId).emit(
         "receiveMessage",
-        newMessage
+        populatedMessage
       );
 
-      // Send real-time message to sender
       io.to(req.user.id).emit(
         "receiveMessage",
-        newMessage
+        populatedMessage
       );
 
-      // Send real-time notification to receiver
       io.to(receiverId).emit(
         "newNotification",
         notification
@@ -107,7 +107,7 @@ const sendMessage = async (req, res) => {
 
     res.status(201).json({
       message: "Message sent successfully",
-      data: newMessage,
+      data: populatedMessage,
     });
   } catch (error) {
     res.status(500).json({
@@ -151,7 +151,10 @@ const getChatHistory = async (req, res) => {
           receiver: req.user.id,
         },
       ],
-    }).sort({ createdAt: 1 });
+    })
+      .populate("sender", "name")
+      .populate("receiver", "name")
+      .sort({ createdAt: 1 });
 
     res.status(200).json({
       message: "Chat history fetched successfully",

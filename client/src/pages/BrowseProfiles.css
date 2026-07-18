@@ -188,3 +188,40 @@
     grid-template-columns: 1fr;
   }
 }
+.browse-loading {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #7c3aed;
+}
+
+.browse-loading h2 {
+  margin-top: 18px;
+  color: #43254a;
+}
+
+.browse-loading p {
+  margin-top: 8px;
+  color: #806c87;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+.send-interest-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}

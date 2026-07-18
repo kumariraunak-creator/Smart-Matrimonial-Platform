@@ -4,7 +4,7 @@ import { Heart, Check, X } from "lucide-react";
 import "./Matches.css";
 
 const API_URL =
-  "https://smart-matrimonial-platform.onrender.com/api";
+"http://localhost:5000/api";
 
 function Matches() {
   const [received, setReceived] = useState([]);
@@ -44,23 +44,27 @@ function Matches() {
     fetchInterests();
   }, []);
 
-  const updateInterest = async (interestId, action) => {
-    try {
-      const response = await axios.put(
-        `${API_URL}/interests/${interestId}/${action}`,
-        {},
-        config
-      );
+  const updateInterest = async (
+  interestId,
+  action
+) => {
+  try {
+    const response = await axios.put(
+      `${API_URL}/interests/${action}/${interestId}`,
+      {},
+      config
+    );
 
-      setMessage(response.data.message);
-      fetchInterests();
-    } catch (error) {
-      setMessage(
-        error.response?.data?.message ||
-          "Failed to update interest"
-      );
-    }
-  };
+    setMessage(response.data.message);
+
+    fetchInterests();
+  } catch (error) {
+    setMessage(
+      error.response?.data?.message ||
+      "Failed to update interest"
+    );
+  }
+};
 
   return (
     <div className="matches-page">
@@ -184,14 +188,18 @@ function Matches() {
                   <Heart size={30} />
                 </div>
 
-                <h3>
-                  {match.user?.name ||
-                    match.sender?.name ||
-                    match.receiver?.name ||
-                    "Your Match"}
-                </h3>
+<h3>
+  {match.matchedUser?.name ||
+    "Your Match"}
+</h3>
+                
 
-                <p>Accepted matrimonial connection</p>
+                <p>
+Matched on{" "}
+{new Date(
+  match.matchedAt
+).toLocaleDateString()}
+</p>
               </article>
             ))
           )}

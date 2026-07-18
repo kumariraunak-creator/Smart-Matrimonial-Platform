@@ -1,7 +1,9 @@
 const UserProfile = require("../models/UserProfile");
 const cloudinary = require("../config/cloudinary");
 
-// HELPER: UPLOAD BUFFER TO CLOUDINARY
+// ==========================
+// CLOUDINARY HELPER
+// ==========================
 const uploadBufferToCloudinary = (fileBuffer, userId) => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -21,10 +23,7 @@ const uploadBufferToCloudinary = (fileBuffer, userId) => {
         ],
       },
       (error, result) => {
-        if (error) {
-          return reject(error);
-        }
-
+        if (error) return reject(error);
         resolve(result);
       }
     );
@@ -33,7 +32,9 @@ const uploadBufferToCloudinary = (fileBuffer, userId) => {
   });
 };
 
-// CREATE OR UPDATE MY PROFILE
+// ==========================
+// CREATE OR UPDATE PROFILE
+// ==========================
 const createOrUpdateProfile = async (req, res) => {
   try {
     const {
@@ -51,24 +52,16 @@ const createOrUpdateProfile = async (req, res) => {
     });
 
     if (profile) {
-      profile = await UserProfile.findOneAndUpdate(
-        {
-          user: req.user.id,
-        },
-        {
-          age,
-          gender,
-          city,
-          education,
-          profession,
-          bio,
-          partnerPreferences,
-        },
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+      profile.age = age;
+      profile.gender = gender;
+      profile.city = city;
+      profile.education = education;
+      profile.profession = profession;
+      profile.bio = bio;
+      profile.partnerPreferences = partnerPreferences;
+      profile.profileCompleted = true;
+
+      await profile.save();
 
       return res.status(200).json({
         message: "Profile updated successfully",
@@ -85,6 +78,7 @@ const createOrUpdateProfile = async (req, res) => {
       profession,
       bio,
       partnerPreferences,
+      profileCompleted: true,
     });
 
     res.status(201).json({
@@ -92,6 +86,8 @@ const createOrUpdateProfile = async (req, res) => {
       profile,
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       message: "Server error",
       error: error.message,
@@ -99,12 +95,14 @@ const createOrUpdateProfile = async (req, res) => {
   }
 };
 
+// ==========================
 // GET MY PROFILE
+// ==========================
 const getMyProfile = async (req, res) => {
   try {
     const profile = await UserProfile.findOne({
       user: req.user.id,
-    });
+    }).populate("user", "name email");
 
     if (!profile) {
       return res.status(404).json({
@@ -117,6 +115,8 @@ const getMyProfile = async (req, res) => {
       profile,
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       message: "Server error",
       error: error.message,
@@ -124,8 +124,13 @@ const getMyProfile = async (req, res) => {
   }
 };
 
-// BROWSE + SEARCH + FILTER PROFILES
+// ==========================
+// BROWSE PROFILES
+// ==========================
 const browseProfiles = async (req, res) => {
+  console.log("✅ browseProfiles route hit");
+  console.log("Logged in User:", req.user);
+
   try {
     const {
       gender,
@@ -140,6 +145,7 @@ const browseProfiles = async (req, res) => {
       user: {
         $ne: req.user.id,
       },
+      profileCompleted: true,
     };
 
     if (gender) {
@@ -179,26 +185,40 @@ const browseProfiles = async (req, res) => {
       }
     }
 
-    const profiles = await UserProfile.find(filter);
+    const profiles = await UserProfile.find(filter).populate({
+      path: "user",
+      match: {
+        accountStatus: "approved",
+      },
+      select: "name email role accountStatus",
+    });
+
+    const approvedProfiles = profiles.filter(
+      (profile) => profile.user !== null
+    );
 
     res.status(200).json({
       message: "Profiles fetched successfully",
-      count: profiles.length,
-      profiles,
+      count: approvedProfiles.length,
+      profiles: approvedProfiles,
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       message: "Server error",
       error: error.message,
     });
   }
 };
-
+// ==========================
 // GET SINGLE PROFILE
+// ==========================
 const getProfileById = async (req, res) => {
   try {
-    const profile = await UserProfile.findById(
-      req.params.id
+    const profile = await UserProfile.findById(req.params.id).populate(
+      "user",
+      "name email role"
     );
 
     if (!profile) {
@@ -212,6 +232,8 @@ const getProfileById = async (req, res) => {
       profile,
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       message: "Server error",
       error: error.message,
@@ -219,7 +241,9 @@ const getProfileById = async (req, res) => {
   }
 };
 
-// UPLOAD OR UPDATE PROFILE PHOTO
+// ==========================
+// UPLOAD PROFILE PHOTO
+// ==========================
 const uploadProfilePhoto = async (req, res) => {
   try {
     if (!req.file) {
@@ -234,8 +258,7 @@ const uploadProfilePhoto = async (req, res) => {
 
     if (!profile) {
       return res.status(404).json({
-        message:
-          "Create your profile before uploading a photo",
+        message: "Please create your profile first",
       });
     }
 
@@ -249,11 +272,12 @@ const uploadProfilePhoto = async (req, res) => {
     await profile.save();
 
     res.status(200).json({
-      message:
-        "Profile photo uploaded successfully",
+      message: "Profile photo uploaded successfully",
       profilePhoto: profile.profilePhoto,
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       message: "Server error",
       error: error.message,
@@ -261,7 +285,9 @@ const uploadProfilePhoto = async (req, res) => {
   }
 };
 
+// ==========================
 // DELETE PROFILE PHOTO
+// ==========================
 const deleteProfilePhoto = async (req, res) => {
   try {
     const profile = await UserProfile.findOne({
@@ -274,29 +300,26 @@ const deleteProfilePhoto = async (req, res) => {
       });
     }
 
-    if (!profile.profilePhoto) {
-      return res.status(400).json({
-        message: "Profile photo not found",
-      });
+    if (profile.profilePhoto) {
+      await cloudinary.uploader.destroy(
+        `smart-matrimonial/profiles/profile-${req.user.id}`,
+        {
+          resource_type: "image",
+          invalidate: true,
+        }
+      );
     }
-
-    await cloudinary.uploader.destroy(
-      `smart-matrimonial/profiles/profile-${req.user.id}`,
-      {
-        resource_type: "image",
-        invalidate: true,
-      }
-    );
 
     profile.profilePhoto = null;
 
     await profile.save();
 
     res.status(200).json({
-      message:
-        "Profile photo deleted successfully",
+      message: "Profile photo deleted successfully",
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       message: "Server error",
       error: error.message,
@@ -304,6 +327,9 @@ const deleteProfilePhoto = async (req, res) => {
   }
 };
 
+// ==========================
+// EXPORTS
+// ==========================
 module.exports = {
   createOrUpdateProfile,
   getMyProfile,
